@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const distDirectory = join(projectRoot, 'dist');
+const distDirectory = join(projectRoot, '..', 'dist');
 const assetsDirectory = join(distDirectory, 'assets');
 
 await cp(join(projectRoot, 'manifest.json'), join(distDirectory, 'manifest.json'));
