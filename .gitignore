@@ -1,0 +1,22 @@
+node_modules/
+dist/
+coverage/
+*.log
+*.zip
+
+# Local workspace data
+CyberBrowseVault/
+.claude/
+.vscode/
+.idea/
+
+# Local secrets and signing material
+.env*
+!.env.example
+*.pem
+*.key
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini

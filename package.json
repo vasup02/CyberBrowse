@@ -1,0 +1,29 @@
+{
+  "name": "cyberbrowse",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A customizable new tab page extension for Chromium browsers.",
+  "author": "Vasu Parashar",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/finalize-build.mjs",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "vite": "^5.2.11",
+    "typescript": "^5.4.5",
+    "eslint": "^9.5.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "prettier": "^3.2.5",
+    "vitest": "^2.0.0",
+    "@types/chrome": "^0.0.252"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
+  }
+}
