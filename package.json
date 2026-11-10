@@ -14,14 +14,14 @@
     "test": "vitest"
   },
   "devDependencies": {
-    "vite": "^5.2.11",
-    "typescript": "^5.4.5",
+    "@types/chrome": "^0.0.252",
+    "@typescript-eslint/eslint-plugin": "^8.72.2",
+    "@typescript-eslint/parser": "^8.72.2",
     "eslint": "^9.5.0",
-    "@typescript-eslint/parser": "^7.18.0",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
     "prettier": "^3.2.5",
-    "vitest": "^2.0.0",
-    "@types/chrome": "^0.0.252"
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11",
+    "vitest": "^2.0.0"
   },
   "allowScripts": {
     "esbuild@0.21.5": true
