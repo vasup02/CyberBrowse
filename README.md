@@ -7,8 +7,10 @@ CyberBrowse is a customizable new-tab extension for Chromium-based desktop brows
 - Search, clock, quick links, and optional productivity widgets.
 - Drag, position, and resize widgets on the new-tab page.
 - Light, dark, and system themes.
-- Image, animated image, and video wallpapers. Video audio tracks are retained; playback may start muted because browsers restrict autoplay with sound.
-- A local wallpaper library for switching between previously used uploads and URL wallpapers.
+- Image, animated image, and video wallpapers, including video audio tracks.
+- Batch upload up to 5 wallpapers with a preview and a choice to save each one, add it to a playlist, or set one as the current wallpaper. The library holds up to 20 wallpapers and 1 GB total.
+- Wallpaper playlists that rotate sequentially or in shuffled cycles on a user-selected interval. In random mode, each other wallpaper appears once before any repeats.
+- Per-wallpaper video volume controls on the new-tab page and in Settings. The compact new-tab control reveals its vertical slider on hover or keyboard focus. Audio mutes when the tab or browser is inactive and resumes on return if that wallpaper is not muted.
 - Settings and wallpaper files remain in the browser profile. A wallpaper URL requires optional access to that site when you apply it.
 - Export and import for settings.
 
@@ -33,13 +35,13 @@ npm run typecheck
 npm run build
 ```
 
-The unpacked extension is generated in `dist/`. The build step uses Node.js file APIs and works on Windows and Linux.
+The unpacked extension is generated in the parent directory’s `dist/` folder (`../dist/`). The build step uses Node.js file APIs and works on Windows and Linux.
 
 ## Load the extension locally
 
 1. Open the browser’s extension manager (`chrome://extensions` in Chrome-based browsers or `opera://extensions` in Opera GX).
 2. Enable Developer mode.
-3. Choose **Load unpacked** and select this repository’s `dist/` directory.
+3. Choose **Load unpacked** and select the generated `../dist/` directory beside the repository folder.
 4. Open a new tab to see CyberBrowse.
 
 To apply later code changes to an unpacked extension, rebuild and reload the extension from its extension manager.
