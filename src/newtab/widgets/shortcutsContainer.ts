@@ -40,7 +40,28 @@ export function renderShortcuts(container: HTMLElement, settings: Settings, isCu
     const monogram = document.createElement('span');
     monogram.className = 'shortcut-monogram';
     monogram.setAttribute('aria-hidden', 'true');
-    monogram.textContent = shortcut.title.trim().charAt(0).toUpperCase() || '↗';
+    const fallback = document.createElement('span');
+    fallback.className = 'shortcut-monogram-fallback';
+    fallback.textContent = shortcut.title.trim().charAt(0).toUpperCase() || '↗';
+    monogram.appendChild(fallback);
+    try {
+      const destination = new URL(shortcut.url);
+      if ((destination.protocol === 'http:' || destination.protocol === 'https:') && typeof chrome !== 'undefined' && chrome.runtime?.getURL) {
+        const iconUrl = new URL(chrome.runtime.getURL('/_favicon/'));
+        iconUrl.searchParams.set('pageUrl', destination.href);
+        iconUrl.searchParams.set('size', '64');
+        const icon = document.createElement('img');
+        icon.alt = '';
+        icon.decoding = 'async';
+        icon.loading = 'lazy';
+        icon.src = iconUrl.href;
+        icon.addEventListener('load', () => monogram.classList.add('has-icon'), { once: true });
+        icon.addEventListener('error', () => icon.remove(), { once: true });
+        monogram.appendChild(icon);
+      }
+    } catch {
+      // Keep the initial-based monogram when a destination has no usable site icon.
+    }
     const label = document.createElement('span');
     label.className = 'shortcut-title';
     label.textContent = shortcut.title;
