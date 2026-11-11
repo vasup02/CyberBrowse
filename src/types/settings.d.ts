@@ -20,6 +20,21 @@ interface WidgetLayout {
   fitContent?: boolean; // keep compact content-sized widgets compact until manually resized
 }
 
+interface WallpaperPlaylistItem {
+  reference: string;
+  muted: boolean;
+}
+
+interface WallpaperPlaylist {
+  enabled: boolean;
+  mode: 'sequential' | 'random';
+  intervalMinutes: number;
+  items: WallpaperPlaylistItem[];
+  currentReference?: string;
+  /** Random-mode queue: wallpapers still to show in the current shuffled cycle. */
+  randomOrder?: string[];
+}
+
 type Theme = 'light' | 'dark' | 'system';
 
 type SearchProvider = 'duckduckgo' | 'google' | 'bing' | 'brave' | 'startpage' | 'custom';
@@ -38,6 +53,8 @@ interface Settings {
   layout: 'simple' | 'advanced';
   wallpaper?: string; // base64 data URL or remote URL
   wallpaperMuted?: boolean;
+  wallpaperVolumes?: Record<string, number>;
+  wallpaperPlaylist?: WallpaperPlaylist;
   barPosition: BarPosition;
   shortcutLayout: ShortcutLayout;
   layoutOrder?: string[]; // order of widget IDs (e.g., ['clock','search','shortcuts'])

@@ -25,7 +25,8 @@
   },
   "permissions": [
     "storage",
-    "favicon"
+    "favicon",
+    "alarms"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:"

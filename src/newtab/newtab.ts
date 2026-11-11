@@ -38,32 +38,70 @@ function applyTheme(settings: Settings) {
   // 'system' leaves no class – CSS respects prefers-color-scheme.
 }
 
-async function applyWallpaper(settings: Settings): Promise<HTMLVideoElement | null> {
-  document.getElementById('wallpaper-video')?.remove();
+let wallpaperRenderVersion = 0;
+
+async function applyWallpaper(settings: Settings, transition = false): Promise<HTMLVideoElement | null> {
+  const renderVersion = ++wallpaperRenderVersion;
+  const existingLayers = Array.from(document.querySelectorAll<HTMLElement>('.wallpaper-layer'));
+  if (!transition) {
+    existingLayers.forEach(layer => {
+      layer.remove();
+      const objectUrl = layer.dataset.objectUrl;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    });
+  }
   document.body.style.backgroundImage = '';
-  if (!settings.wallpaper) return null;
+  if (!settings.wallpaper) {
+    existingLayers.forEach(layer => { layer.classList.remove('is-active'); });
+    window.setTimeout(() => existingLayers.forEach(layer => {
+      const objectUrl = layer.dataset.objectUrl;
+      layer.remove();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    }), 760);
+    return null;
+  }
 
   let source = settings.wallpaper;
   let mime = '';
+  let objectUrl = '';
   if (source.startsWith(STORED_WALLPAPER_PREFIX)) {
     const media = await loadWallpaperMedia(source);
     if (!media) return null;
     mime = media.type;
-    source = URL.createObjectURL(media);
+    objectUrl = URL.createObjectURL(media);
+    source = objectUrl;
   } else if (source.startsWith('data:')) {
     mime = source.slice(5, source.indexOf(';') > -1 ? source.indexOf(';') : source.indexOf(','));
   } else {
     mime = /\.(mp4|m4v|webm|ogv|ogg|mov)(?:[?#].*)?$/i.test(source) ? 'video/*' : '';
   }
+  if (renderVersion !== wallpaperRenderVersion) {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    return null;
+  }
+
+  const layerClass = `wallpaper-layer${transition ? '' : ' is-active'}`;
+  const layerStyle = (element: HTMLElement) => {
+    element.className = layerClass;
+    if (objectUrl) element.dataset.objectUrl = objectUrl;
+  };
 
   if (mime.startsWith('video/') || mime === 'video/*') {
     const video = document.createElement('video');
     video.id = 'wallpaper-video';
+    layerStyle(video);
     video.src = source;
     video.autoplay = true;
     video.loop = true;
     video.playsInline = true;
-    video.muted = settings.wallpaperMuted ?? true;
+    const savedVolume = settings.wallpaperVolumes?.[settings.wallpaper];
+    const playlistItem = settings.wallpaperPlaylist?.items.find(item => item.reference === settings.wallpaper);
+    const inactive = document.hidden || !document.hasFocus();
+    const initialVolume = typeof savedVolume === 'number'
+      ? Math.max(0, Math.min(1, savedVolume))
+      : 0.5;
+    video.volume = initialVolume;
+    video.muted = inactive || (playlistItem ? playlistItem.muted : (settings.wallpaperMuted ?? (savedVolume === 0)));
     video.setAttribute('aria-hidden', 'true');
     document.body.appendChild(video);
     try {
@@ -72,13 +110,45 @@ async function applyWallpaper(settings: Settings): Promise<HTMLVideoElement | nu
       video.muted = true;
       await video.play().catch(() => undefined);
     }
+    if (renderVersion !== wallpaperRenderVersion) {
+      video.pause();
+      video.remove();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      return null;
+    }
+    requestAnimationFrame(() => video.classList.add('is-active'));
+    existingLayers.forEach(layer => layer.classList.remove('is-active'));
+    window.setTimeout(() => existingLayers.forEach(layer => {
+      const oldObjectUrl = layer.dataset.objectUrl;
+      layer.remove();
+      if (oldObjectUrl) URL.revokeObjectURL(oldObjectUrl);
+    }), 760);
     return video;
   }
 
-  document.body.style.backgroundImage = `url(${source})`;
-  document.body.style.backgroundSize = 'cover';
-  document.body.style.backgroundRepeat = 'no-repeat';
-  document.body.style.backgroundPosition = 'center';
+  const image = new Image();
+  image.src = source;
+  await image.decode().catch(() => undefined);
+  if (renderVersion !== wallpaperRenderVersion) {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    return null;
+  }
+  const imageLayer = document.createElement('div');
+  imageLayer.id = 'wallpaper-image';
+  layerStyle(imageLayer);
+  const imageElement = document.createElement('img');
+  imageElement.src = source;
+  imageElement.alt = '';
+  imageElement.setAttribute('aria-hidden', 'true');
+  imageLayer.appendChild(imageElement);
+  document.body.appendChild(imageLayer);
+  requestAnimationFrame(() => imageLayer.classList.add('is-active'));
+  existingLayers.forEach(layer => layer.classList.remove('is-active'));
+  window.setTimeout(() => existingLayers.forEach(layer => {
+    const oldObjectUrl = layer.dataset.objectUrl;
+    layer.remove();
+    if (oldObjectUrl) URL.revokeObjectURL(oldObjectUrl);
+  }), 760);
   return null;
 }
 
@@ -100,7 +170,7 @@ async function renderNewTab() {
     <button id="done-btn" class="btn btn-solid">Done</button>
   </aside>` : ''}
   ${!isCustomizeMode ? '<button id="settings-btn" class="settings-button" type="button" aria-label="Open settings" title="Settings">⚙</button>' : ''}
-  ${!isCustomizeMode ? '<button id="wallpaper-audio-btn" class="wallpaper-audio-button" type="button" aria-pressed="false" hidden></button>' : ''}
+  ${!isCustomizeMode ? '<div id="wallpaper-audio-control" class="wallpaper-audio-control" hidden><label class="sr-only" for="wallpaper-volume-input">Wallpaper volume</label><output id="wallpaper-volume-value" class="wallpaper-volume-value">50%</output><input id="wallpaper-volume-input" class="wallpaper-volume-input" type="range" min="0" max="100" step="1" value="50" orient="vertical" aria-label="Wallpaper volume" /><button id="wallpaper-audio-btn" class="wallpaper-audio-button" type="button" aria-pressed="false" aria-label="Mute wallpaper sound" title="Mute wallpaper sound"></button></div>' : ''}
   ${isCustomizeMode ? `
   <aside class="widget-shelf" aria-label="Widget shelf">
     <div class="shelf-intro"><p class="shelf-kicker">YOUR CANVAS</p><h2>Widgets</h2><p>Add useful panels, then arrange them on your page.</p></div>
@@ -124,31 +194,149 @@ async function renderNewTab() {
 
   // Apply theme and wallpaper first
   applyTheme(settings);
-  const wallpaperVideo = await applyWallpaper(settings);
+  let wallpaperVideo = await applyWallpaper(settings);
   const audioButton = document.getElementById('wallpaper-audio-btn') as HTMLButtonElement | null;
-  if (wallpaperVideo && audioButton) {
-    audioButton.hidden = false;
-    const syncAudioButton = () => {
-      audioButton.setAttribute('aria-pressed', String(!wallpaperVideo.muted));
-      audioButton.setAttribute('aria-label', wallpaperVideo.muted ? 'Turn wallpaper sound on' : 'Mute wallpaper sound');
-      audioButton.title = wallpaperVideo.muted ? 'Turn wallpaper sound on' : 'Mute wallpaper sound';
-      audioButton.innerHTML = wallpaperVideo.muted
+  const audioControl = document.getElementById('wallpaper-audio-control') as HTMLDivElement | null;
+  const volumeInput = document.getElementById('wallpaper-volume-input') as HTMLInputElement | null;
+  const volumeValue = document.getElementById('wallpaper-volume-value') as HTMLOutputElement | null;
+  let activeWallpaperReference = settings.wallpaper;
+  const initialPlaylistItem = settings.wallpaperPlaylist?.items.find(item => item.reference === activeWallpaperReference);
+  const initialAudioDesired = initialPlaylistItem
+    ? !initialPlaylistItem.muted
+    : settings.wallpaperMuted === false;
+  let mutedForBackground = Boolean(wallpaperVideo && initialAudioDesired && (document.hidden || !document.hasFocus()));
+  let wallpaperSwapToken = 0;
+  const syncAudioButton = () => {
+    if (!audioButton) return;
+    if (audioControl) audioControl.hidden = !wallpaperVideo;
+    if (!wallpaperVideo) return;
+    if (volumeInput) volumeInput.value = String(Math.round(wallpaperVideo.volume * 100));
+    audioButton.setAttribute('aria-pressed', String(!wallpaperVideo.muted));
+    audioButton.setAttribute('aria-label', wallpaperVideo.muted ? 'Turn wallpaper sound on' : 'Mute wallpaper sound');
+    audioButton.title = wallpaperVideo.muted ? 'Turn wallpaper sound on' : 'Mute wallpaper sound';
+    if (volumeValue) volumeValue.value = `${Math.round(wallpaperVideo.volume * 100)}%`;
+    volumeInput?.setAttribute('aria-valuetext', `${Math.round(wallpaperVideo.volume * 100)} percent${wallpaperVideo.muted ? ', muted' : ''}`);
+    audioButton.innerHTML = wallpaperVideo.muted
         ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l5 4V6l-5 4H4Z"/><path d="m16 9 5 6m0-6-5 6"/></svg>'
         : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l5 4V6l-5 4H4Z"/><path d="M16 9a5 5 0 0 1 0 6m2-9a9 9 0 0 1 0 12"/></svg>';
-    };
+  };
+  const applyVideoAudioSettings = (video: HTMLVideoElement, latest: Settings, inactive: boolean) => {
+    if (!latest.wallpaper) return;
+    const savedVolume = latest.wallpaperVolumes?.[latest.wallpaper];
+    const playlistItem = latest.wallpaperPlaylist?.items.find(item => item.reference === latest.wallpaper);
+    video.volume = typeof savedVolume === 'number'
+      ? Math.max(0, Math.min(1, savedVolume))
+      : 0.5;
+    const shouldMute = playlistItem ? playlistItem.muted : (latest.wallpaperMuted ?? true);
+    mutedForBackground = inactive && !shouldMute;
+    video.muted = inactive || shouldMute;
+  };
+  syncAudioButton();
+  volumeInput?.addEventListener('input', () => {
+    if (!wallpaperVideo || !activeWallpaperReference) return;
+    const volume = Number(volumeInput.value) / 100;
+    wallpaperVideo.volume = volume;
+    const inactive = document.hidden || !document.hasFocus();
+    wallpaperVideo.muted = volume === 0 || inactive;
+    mutedForBackground = volume > 0 && inactive;
     syncAudioButton();
-    audioButton.addEventListener('click', async () => {
-      const unmuting = wallpaperVideo.muted;
-      wallpaperVideo.muted = !unmuting;
-      if (unmuting) {
-        try { await wallpaperVideo.play(); }
-        catch { wallpaperVideo.muted = true; }
-      }
-      syncAudioButton();
-      const latest = await getSettings();
-      await setSettings({ ...latest, wallpaperMuted: wallpaperVideo.muted });
+  });
+  volumeInput?.addEventListener('change', async () => {
+    if (!wallpaperVideo || !activeWallpaperReference) return;
+    const latest = await getSettings();
+    const volume = Number(volumeInput.value) / 100;
+    const muted = volume === 0;
+    await setSettings({
+      ...latest,
+      wallpaperMuted: muted,
+      wallpaperVolumes: { ...latest.wallpaperVolumes, [activeWallpaperReference]: volume },
+      ...(latest.wallpaperPlaylist ? {
+        wallpaperPlaylist: {
+          ...latest.wallpaperPlaylist,
+          items: latest.wallpaperPlaylist.items.map(item => item.reference === activeWallpaperReference ? { ...item, muted } : item)
+        }
+      } : {})
     });
-  }
+    if (volume > 0 && !document.hidden && document.hasFocus()) await wallpaperVideo.play().catch(() => undefined);
+  });
+  audioButton?.addEventListener('click', async () => {
+    if (!wallpaperVideo || !activeWallpaperReference) return;
+    const latest = await getSettings();
+    const unmuting = wallpaperVideo.muted;
+    if (unmuting && wallpaperVideo.volume === 0) {
+      const savedVolume = latest.wallpaperVolumes?.[activeWallpaperReference];
+      wallpaperVideo.volume = typeof savedVolume === 'number' && savedVolume > 0 ? savedVolume : 0.5;
+    }
+    const muted = !unmuting;
+    wallpaperVideo.muted = muted || document.hidden || !document.hasFocus();
+    mutedForBackground = !muted && (document.hidden || !document.hasFocus());
+    if (!wallpaperVideo.muted) await wallpaperVideo.play().catch(() => { if (wallpaperVideo) wallpaperVideo.muted = true; });
+    syncAudioButton();
+    await setSettings({
+      ...latest,
+      wallpaperMuted: muted,
+      wallpaperVolumes: { ...latest.wallpaperVolumes, [activeWallpaperReference]: wallpaperVideo.volume || latest.wallpaperVolumes?.[activeWallpaperReference] || 0.5 },
+      ...(latest.wallpaperPlaylist ? {
+        wallpaperPlaylist: {
+          ...latest.wallpaperPlaylist,
+          items: latest.wallpaperPlaylist.items.map(item => item.reference === activeWallpaperReference ? { ...item, muted } : item)
+        }
+      } : {})
+    });
+  });
+  const muteWhenInactive = () => {
+    if (!document.hidden && document.hasFocus()) return;
+    if (!wallpaperVideo) return;
+    if (!wallpaperVideo.muted) mutedForBackground = true;
+    wallpaperVideo.muted = true;
+    syncAudioButton();
+  };
+  const restoreWhenActive = async () => {
+    if (document.hidden || !document.hasFocus() || !mutedForBackground) return;
+    const latest = await getSettings();
+    if (latest.wallpaper !== activeWallpaperReference) return;
+    mutedForBackground = false;
+    if (wallpaperVideo) {
+      applyVideoAudioSettings(wallpaperVideo, latest, false);
+      if (!wallpaperVideo.muted) await wallpaperVideo.play().catch(() => { if (wallpaperVideo) wallpaperVideo.muted = true; });
+    }
+    syncAudioButton();
+  };
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local' || !changes.settings) return;
+    const latest = changes.settings.newValue as Settings | undefined;
+    if (!latest) return;
+    applyTheme(latest);
+    if (latest.wallpaper !== activeWallpaperReference) {
+      const swapToken = ++wallpaperSwapToken;
+      if (wallpaperVideo) {
+        wallpaperVideo.muted = true;
+        wallpaperVideo.pause();
+      }
+      activeWallpaperReference = latest.wallpaper;
+      mutedForBackground = false;
+      void applyWallpaper(latest, true).then(nextVideo => {
+        if (swapToken !== wallpaperSwapToken) {
+          nextVideo?.pause();
+          nextVideo?.remove();
+          return;
+        }
+        wallpaperVideo = nextVideo;
+      if (wallpaperVideo) applyVideoAudioSettings(wallpaperVideo, latest, document.hidden || !document.hasFocus());
+        syncAudioButton();
+      });
+      return;
+    }
+    if (wallpaperVideo) applyVideoAudioSettings(wallpaperVideo, latest, document.hidden || !document.hasFocus());
+    syncAudioButton();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) muteWhenInactive();
+    else void restoreWhenActive();
+  });
+  window.addEventListener('blur', muteWhenInactive);
+  window.addEventListener('focus', () => { void restoreWhenActive(); });
+  window.addEventListener('pagehide', muteWhenInactive);
 
   const container = document.querySelector('.newtab') as HTMLElement;
   const defaultLayouts: Record<string, WidgetLayout> = {

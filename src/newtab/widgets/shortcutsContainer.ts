@@ -25,8 +25,6 @@ export function renderShortcuts(container: HTMLElement, settings: Settings, isCu
     // Link
     const link = document.createElement('a');
     link.href = shortcut.url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
     link.className = variant === 'ledger' ? 'shortcut-link shortcut-link-ledger' : 'shortcut-link';
     if (isCustomizeMode) link.tabIndex = -1;
     link.setAttribute('aria-label', `Open ${shortcut.title}`);
